@@ -1,3 +1,5 @@
+
+
 node{
     
 def mavenHome = tool name: "maven3.8.4"
@@ -10,6 +12,9 @@ echo "Build number is: ${env.BUILD_NUMBER}"
 
 
 try{
+
+sendSlackNotifications('STARTED')
+
 stage('CheckoutCode')
 {
 git branch: 'development', credentialsId: 'c4f0d576-78e2-4e85-9268-7cb1c07ec0a7', url: 'https://github.com/shashikanth731/maven-web-application.git'
@@ -51,10 +56,8 @@ sendSlackNotifications(currentBuild.result)
 
 def sendSlackNotifications(StringbuildStatus = 'STARTED') {
 
-def sendSlackNotifications(String buildStatus = 'STARTED') {
+  buildStatus = buildStatus ?: 'SUCCESS' 
   
-  buildStatus =  buildStatus ?: 'SUCCESS'
-
   // Default values
   def colorName = 'RED'
   def colorCode = '#FF0000'
