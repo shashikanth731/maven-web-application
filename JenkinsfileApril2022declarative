@@ -1,0 +1,102 @@
+pipeline
+{
+
+agent any
+
+tools{
+maven "maven3.8.4"    
+}
+
+triggers {
+  pollSCM('* * * * *')
+}
+
+options {
+//Discard Old Builds    
+  buildDiscarder logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '5', daysToKeepStr: '', numToKeepStr: '5')
+}
+
+stages{
+
+ //Checkout Code stage
+ stage('CheckoutCode')
+ {
+ steps{
+ sendSlackNotifications('STARTED')  
+     
+ git branch: 'development', credentialsId: 'c4f0d576-78e2-4e85-9268-7cb1c07ec0a7', url: 'https://github.com/shashikanth731/maven-web-application.git'
+ }
+}
+
+//Build Stage
+stage('Build')
+{
+steps{
+sh "mvn clean package"
+}
+}
+
+//Execute SonarQube Report
+stage('ExecuteSonarQubeReport'){
+steps{
+sh "mvn sonar:sonar"
+}
+}
+
+//Upload Artifacts into Artifactory repo
+stage('UploadIntoNexus')
+{
+steps{
+sh "mvn deploy"
+}
+}
+
+stage('DeployAppIntoTomcatServer'){
+steps{
+sshagent(['4ace188a-e24a-435e-8eb4-c7d1d5f84b51']){
+sh "scp -o StrictHostKeyChecking=no target/maven-web-application.war ec2-user@13.233.215.174:/opt/apache-tomcat-9.0.63/webapps"    
+}
+}
+}
+
+}//Stages closing
+
+post {
+  success {
+    sendSlackNotifications('SUCCESS')
+  }
+  failure {
+   sendSlackNotifications('FAILURE')
+  }
+}
+
+}//pipeline closing
+
+
+
+
+def sendSlackNotifications(String buildStatus = 'STARTED') {
+  
+  buildStatus =  buildStatus ?: 'SUCCESS'
+
+  // Default values
+  def colorName = 'RED'
+  def colorCode = '#FF0000'
+  def subject = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'"
+  def summary = "${subject} (${env.BUILD_URL})"
+
+  // Override default values based on build status
+  if (buildStatus == 'STARTED') {
+    color = 'YELLOW'
+    colorCode = '#FFFF00'
+  } else if (buildStatus == 'SUCCESS') {
+    color = 'GREEN'
+    colorCode = '#00FF00'
+  } else {
+    color = 'RED'
+    colorCode = '#FF0000'
+  }
+
+  // Send notifications
+  slackSend (color: colorCode, message: summary, channel: 'facebook')
+}
