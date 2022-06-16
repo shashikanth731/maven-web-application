@@ -1,4 +1,4 @@
-
+@Library('sharedlibssh') _
 
 node('nodes'){
     
